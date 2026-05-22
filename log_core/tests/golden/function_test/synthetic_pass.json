@@ -1,0 +1,81 @@
+{
+  "source": {
+    "file_name": "AP503_Function_Test.txt",
+    "parser": "function_test"
+  },
+  "device": {
+    "mac": "F4:E1:FC:CF:04:68",
+    "sn": "CNWGLGQ04S",
+    "smt_number": "SMT2405220007",
+    "model": "AP-503",
+    "production_date": "2026-05-22"
+  },
+  "processes": [
+    {
+      "name": "Function Test",
+      "status": "PASS",
+      "duration_ms": 750000,
+      "key_parameters": [
+        {
+          "name": "u_boot_version",
+          "value": "2.6.5.9",
+          "unit": null
+        },
+        {
+          "name": "nand_flash",
+          "value": "128MB",
+          "unit": null
+        },
+        {
+          "name": "sdram",
+          "value": "DDR4 1GB",
+          "unit": null
+        },
+        {
+          "name": "watchdog",
+          "value": "enabled",
+          "unit": null
+        }
+      ]
+    }
+  ],
+  "anomalies": [
+    {
+      "severity": "warning",
+      "message": "WARNING Failed to retrieve boot CFE version from dtb!",
+      "line_number": 13,
+      "context": [
+        "Duration: 12:30",
+        "WARNING Failed to retrieve boot CFE version from dtb!",
+        "retry boot metadata read"
+      ]
+    }
+  ],
+  "shmoo_plots": [
+    {
+      "name": "DDR Write Leveling",
+      "rows": [
+        "++X++",
+        "++S++",
+        "+----"
+      ],
+      "cells": [
+        { "row": 0, "column": 0, "symbol": "+", "selected": false },
+        { "row": 0, "column": 1, "symbol": "+", "selected": false },
+        { "row": 0, "column": 2, "symbol": "X", "selected": true },
+        { "row": 0, "column": 3, "symbol": "+", "selected": false },
+        { "row": 0, "column": 4, "symbol": "+", "selected": false },
+        { "row": 1, "column": 0, "symbol": "+", "selected": false },
+        { "row": 1, "column": 1, "symbol": "+", "selected": false },
+        { "row": 1, "column": 2, "symbol": "S", "selected": false },
+        { "row": 1, "column": 3, "symbol": "+", "selected": false },
+        { "row": 1, "column": 4, "symbol": "+", "selected": false },
+        { "row": 2, "column": 0, "symbol": "+", "selected": false },
+        { "row": 2, "column": 1, "symbol": "-", "selected": false },
+        { "row": 2, "column": 2, "symbol": "-", "selected": false },
+        { "row": 2, "column": 3, "symbol": "-", "selected": false },
+        { "row": 2, "column": 4, "symbol": "-", "selected": false }
+      ]
+    }
+  ]
+}

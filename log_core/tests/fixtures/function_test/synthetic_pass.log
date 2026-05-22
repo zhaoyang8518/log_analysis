@@ -1,0 +1,20 @@
+Station: ICT-07
+Function Test Start
+Model: AP-503
+SN: CNWGLGQ04S
+MAC: F4:E1:FC:CF:04:68
+SMT Number: SMT2405220007
+Production Date: 2026-05-22
+U-Boot Version: 2.6.5.9
+NAND Flash: 128MB
+SDRAM: DDR4 1GB
+Watchdog: enabled
+Duration: 12:30
+WARNING Failed to retrieve boot CFE version from dtb!
+retry boot metadata read
+SHMOO: DDR Write Leveling
+++X++
+++S++
++----
+END SHMOO
+Function Test Result: PASS

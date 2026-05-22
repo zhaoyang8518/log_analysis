@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "parsed-log.schema.json",
+  "title": "Parsed Production Test Log",
+  "type": "object",
+  "required": ["source", "device", "processes", "anomalies", "shmoo_plots"],
+  "properties": {
+    "source": {
+      "type": "object",
+      "required": ["file_name", "parser"],
+      "properties": {
+        "file_name": { "type": "string" },
+        "parser": {
+          "enum": [
+            "function_test",
+            "radio_test",
+            "txpower_test",
+            "install_apboot",
+            "verify_tpm_aos",
+            "oba_test",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "device": {
+      "type": "object",
+      "required": ["mac", "sn", "smt_number", "model", "production_date"],
+      "properties": {
+        "mac": { "type": ["string", "null"] },
+        "sn": { "type": ["string", "null"] },
+        "smt_number": { "type": ["string", "null"] },
+        "model": { "type": ["string", "null"] },
+        "production_date": { "type": ["string", "null"] }
+      }
+    },
+    "processes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "status", "duration_ms", "key_parameters"],
+        "properties": {
+          "name": { "type": "string" },
+          "status": { "enum": ["PASS", "FAIL", "UNKNOWN"] },
+          "duration_ms": { "type": ["integer", "null"], "minimum": 0 },
+          "key_parameters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "value", "unit"],
+              "properties": {
+                "name": { "type": "string" },
+                "value": { "type": "string" },
+                "unit": { "type": ["string", "null"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "anomalies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "message", "line_number", "context"],
+        "properties": {
+          "severity": { "enum": ["warning", "error", "unknown"] },
+          "message": { "type": "string" },
+          "line_number": { "type": "integer", "minimum": 1 },
+          "context": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "shmoo_plots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "rows", "cells"],
+        "properties": {
+          "name": { "type": "string" },
+          "rows": { "type": "array", "items": { "type": "string" } },
+          "cells": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["row", "column", "symbol", "selected"],
+              "properties": {
+                "row": { "type": "integer", "minimum": 0 },
+                "column": { "type": "integer", "minimum": 0 },
+                "symbol": { "type": "string", "minLength": 1, "maxLength": 1 },
+                "selected": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
