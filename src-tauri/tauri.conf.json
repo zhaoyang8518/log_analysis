@@ -39,7 +39,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVGQTU3QUE1OUVBNjMyOTgKUldTWU1xYWVwWHFsN3dnUXh0M1VpZFhhNjNIdm8rQXpnQXZhb1ZEVmcvQVp0Y1pSVTJyZm1qdU8K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgwODlDRUIxMkI2Njk4NTgKUldSWW1HWXJzYzZKZ0oyV0R0L1pNWksrajhuVHpmV0dWRFR3cHRabTUvU1ViRy9jaEN3WVN1WFcK%",
       "endpoints": [
         "https://github.com/zhaoyang8518/tools-releases/releases/download/log-analysis-latest/latest.json"
       ],
