@@ -51,7 +51,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.TOOLS_RELEASES_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: ./src-tauri
           owner: ${{ env.RELEASE_OWNER }}
@@ -99,7 +98,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.TOOLS_RELEASES_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: ./src-tauri
           owner: ${{ env.RELEASE_OWNER }}
