@@ -1,11 +1,21 @@
 mod function_test;
+mod install_apboot;
 mod model;
+mod oba_test;
+mod radio_test;
+mod txpower_test;
+mod verify_tpm_aos;
 
 pub use function_test::FunctionTestParser;
+pub use install_apboot::InstallApbootParser;
 pub use model::{
     Anomaly, AnomalySeverity, DeviceInfo, KeyParameter, LogKind, ParseSource, ParsedLog,
     ProcessResult, ShmooCell, ShmooPlot, TestStatus,
 };
+pub use oba_test::ObaTestParser;
+pub use radio_test::RadioTestParser;
+pub use txpower_test::TxpowerTestParser;
+pub use verify_tpm_aos::VerifyTpmAosParser;
 
 pub trait LogParser {
     fn kind(&self) -> LogKind;
@@ -35,7 +45,14 @@ impl std::fmt::Display for ParseError {
 impl std::error::Error for ParseError {}
 
 pub fn identify_log_kind(file_name: &str, content: &str) -> Option<LogKind> {
-    let parsers: [&dyn LogParser; 1] = [&FunctionTestParser];
+    let parsers: [&dyn LogParser; 6] = [
+        &FunctionTestParser,
+        &RadioTestParser,
+        &TxpowerTestParser,
+        &InstallApbootParser,
+        &VerifyTpmAosParser,
+        &ObaTestParser,
+    ];
 
     parsers
         .iter()
@@ -44,9 +61,19 @@ pub fn identify_log_kind(file_name: &str, content: &str) -> Option<LogKind> {
 }
 
 pub fn parse_log(file_name: &str, content: &str) -> Result<ParsedLog, ParseError> {
-    let parser = FunctionTestParser;
-    if parser.matches(file_name, content) {
-        return parser.parse(file_name, content);
+    let parsers: [&dyn LogParser; 6] = [
+        &FunctionTestParser,
+        &RadioTestParser,
+        &TxpowerTestParser,
+        &InstallApbootParser,
+        &VerifyTpmAosParser,
+        &ObaTestParser,
+    ];
+
+    for parser in parsers {
+        if parser.matches(file_name, content) {
+            return parser.parse(file_name, content);
+        }
     }
 
     Err(ParseError::new(format!(

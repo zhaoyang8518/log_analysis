@@ -2,6 +2,7 @@ use crate::{
     Anomaly, AnomalySeverity, DeviceInfo, KeyParameter, LogKind, LogParser, ParseError,
     ParseSource, ParsedLog, ProcessResult, ShmooCell, ShmooPlot, TestStatus,
 };
+use regex::Regex;
 
 pub struct FunctionTestParser;
 
@@ -16,7 +17,7 @@ impl LogParser for FunctionTestParser {
 
         normalized_name.contains("function")
             || normalized_content.contains("function test")
-            || (normalized_content.contains("shmoo") && normalized_content.contains("sdram"))
+            || (normalized_content.contains("sdram test") && normalized_content.contains("shmoo"))
     }
 
     fn parse(&self, file_name: &str, content: &str) -> Result<ParsedLog, ParseError> {
@@ -25,7 +26,6 @@ impl LogParser for FunctionTestParser {
         }
 
         let lines: Vec<&str> = content.lines().collect();
-        let key_parameters = parse_key_parameters(&lines);
 
         Ok(ParsedLog {
             source: ParseSource {
@@ -36,8 +36,8 @@ impl LogParser for FunctionTestParser {
             processes: vec![ProcessResult {
                 name: "Function Test".to_string(),
                 status: parse_status(&lines),
-                duration_ms: parse_duration_ms(&lines),
-                key_parameters,
+                duration_ms: None,
+                key_parameters: parse_key_parameters(&lines),
             }],
             anomalies: parse_anomalies(&lines),
             shmoo_plots: parse_shmoo_plots(&lines),
@@ -47,89 +47,237 @@ impl LogParser for FunctionTestParser {
 
 fn parse_device_info(lines: &[&str]) -> DeviceInfo {
     DeviceInfo {
-        mac: first_field(lines, &["MAC", "MAC Address"]),
-        sn: first_field(lines, &["SN", "Serial Number"]),
-        smt_number: first_field(lines, &["SMT", "SMT Number"]),
-        model: first_field(lines, &["Model"]),
-        production_date: first_field(lines, &["Production Date", "Date Code"]),
+        mac: extract_mac(lines),
+        sn: extract_sn(lines),
+        smt_number: extract_smt(lines),
+        model: extract_model(lines),
+        production_date: extract_production_date(lines),
     }
 }
 
-fn first_field(lines: &[&str], labels: &[&str]) -> Option<String> {
-    labels
-        .iter()
-        .find_map(|label| lines.iter().find_map(|line| field_value(line, label)))
+fn extract_mac(lines: &[&str]) -> Option<String> {
+    let patterns = [
+        r"Get MAC from SFCS:([A-Fa-f0-9]+)",
+        r"Get MAC\s*:\s*([A-Fa-f0-9]+)",
+        r"Base MAC Address\s*[:=]\s*([A-Fa-f0-9:]+)",
+        r"MAC:\s*([A-Fa-f0-9:]+)",
+    ];
+
+    for pattern in &patterns {
+        if let Some(value) = extract_by_regex(lines, pattern) {
+            return Some(value);
+        }
+    }
+    None
 }
 
-fn field_value(line: &str, label: &str) -> Option<String> {
-    let trimmed = line.trim();
-    let separator_index = trimmed.find([':', '='])?;
-    let key = trimmed[..separator_index].trim();
-    if !key.eq_ignore_ascii_case(label) {
-        return None;
-    }
+fn extract_sn(lines: &[&str]) -> Option<String> {
+    let patterns = [
+        r"Get SN from SFCS:([A-Za-z0-9]+)",
+        r"Get SN\s*:\s*([A-Za-z0-9]+)",
+        r"SN:\s*([A-Za-z0-9]+)",
+    ];
 
-    let value = trimmed[separator_index + 1..].trim();
-    (!value.is_empty()).then(|| value.to_string())
+    for pattern in &patterns {
+        if let Some(value) = extract_by_regex(lines, pattern) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn extract_smt(lines: &[&str]) -> Option<String> {
+    let patterns = [
+        r"Get SMT:([A-Za-z0-9]+)",
+        r"Get SMT\s*:\s*([A-Za-z0-9]+)",
+        r"SMT Number:\s*([A-Za-z0-9]+)",
+    ];
+
+    for pattern in &patterns {
+        if let Some(value) = extract_by_regex(lines, pattern) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn extract_model(lines: &[&str]) -> Option<String> {
+    let patterns = [
+        r"Model:\s*([A-Za-z0-9-]+)",
+        r"Input PNLabel\s*:\s*([A-Za-z0-9-]+)",
+    ];
+
+    for pattern in &patterns {
+        if let Some(value) = extract_by_regex(lines, pattern) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn extract_production_date(lines: &[&str]) -> Option<String> {
+    let patterns = [
+        r"The System D/L Date\s+(\d{4}-\d{2}-\d{2})",
+        r"Production Date:\s*(\d{4}-\d{2}-\d{2})",
+    ];
+
+    for pattern in &patterns {
+        if let Some(value) = extract_by_regex(lines, pattern) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn extract_by_regex(lines: &[&str], pattern: &str) -> Option<String> {
+    let re = Regex::new(pattern).ok()?;
+    for line in lines {
+        if let Some(captures) = re.captures(line) {
+            if captures.len() > 1 {
+                return Some(captures[1].to_string());
+            }
+        }
+    }
+    None
 }
 
 fn parse_status(lines: &[&str]) -> TestStatus {
     for line in lines.iter().rev() {
         let normalized = line.to_ascii_uppercase();
-        if normalized.contains("FUNCTION TEST") && normalized.contains("FAIL") {
+        if normalized.contains("[PASS] FUNCTION") || normalized.contains("FUNCTION TEST RESULT: PASS") {
+            return TestStatus::Pass;
+        }
+        if normalized.contains("[FAIL] FUNCTION") || normalized.contains("FUNCTION TEST RESULT: FAIL") {
             return TestStatus::Fail;
         }
-        if normalized.contains("FUNCTION TEST") && normalized.contains("PASS") {
-            return TestStatus::Pass;
+        if normalized.contains("PASS") && (normalized.contains("FUNCTION") || normalized.contains("TEST")) {
+            if normalized.contains("CHECK") || normalized.contains("PASS]") {
+                continue;
+            }
+        }
+    }
+
+    let pass_patterns = [
+        r"\[PASS\]\s*FUNCTION",
+        r"FUNCTION\s+TEST\s+RESULT:\s*PASS",
+    ];
+
+    for pattern in &pass_patterns {
+        let re = Regex::new(pattern).ok().unwrap();
+        for line in lines {
+            if re.is_match(&line.to_ascii_uppercase()) {
+                return TestStatus::Pass;
+            }
         }
     }
 
     TestStatus::Unknown
 }
 
-fn parse_duration_ms(lines: &[&str]) -> Option<u64> {
-    lines.iter().find_map(|line| {
-        let raw = field_value(line, "Duration")?;
-        parse_duration_value(&raw)
-    })
+fn parse_key_parameters(lines: &[&str]) -> Vec<KeyParameter> {
+    let mut params = Vec::new();
+
+    if let Some(value) = extract_uboot_version(lines) {
+        params.push(KeyParameter {
+            name: "u_boot_version".to_string(),
+            value,
+            unit: None,
+        });
+    }
+
+    if let Some(value) = extract_nand_flash(lines) {
+        params.push(KeyParameter {
+            name: "nand_flash".to_string(),
+            value,
+            unit: None,
+        });
+    }
+
+    if let Some(value) = extract_sdram(lines) {
+        params.push(KeyParameter {
+            name: "sdram".to_string(),
+            value,
+            unit: None,
+        });
+    }
+
+    if let Some(value) = extract_watchdog(lines) {
+        params.push(KeyParameter {
+            name: "watchdog".to_string(),
+            value,
+            unit: None,
+        });
+    }
+
+    params
 }
 
-fn parse_duration_value(raw: &str) -> Option<u64> {
-    let raw = raw.trim();
-    if let Some(seconds) = raw.strip_suffix('s') {
-        return seconds
-            .trim()
-            .parse::<u64>()
-            .ok()
-            .map(|value| value * 1_000);
-    }
+fn extract_uboot_version(lines: &[&str]) -> Option<String> {
+    let patterns = [
+        r"U-Boot\s+([\d.]+)",
+        r"APBoot\s+([\d.]+)",
+    ];
 
-    let parts: Vec<&str> = raw.split(':').collect();
-    if parts.len() == 2 {
-        let minutes = parts[0].trim().parse::<u64>().ok()?;
-        let seconds = parts[1].trim().parse::<u64>().ok()?;
-        return Some((minutes * 60 + seconds) * 1_000);
+    for pattern in &patterns {
+        if let Some(value) = extract_by_regex(lines, pattern) {
+            return Some(value);
+        }
     }
-
     None
 }
 
-fn parse_key_parameters(lines: &[&str]) -> Vec<KeyParameter> {
-    [
-        ("U-Boot Version", "u_boot_version"),
-        ("NAND Flash", "nand_flash"),
-        ("SDRAM", "sdram"),
-        ("Watchdog", "watchdog"),
-    ]
-    .into_iter()
-    .filter_map(|(label, name)| {
-        first_field(lines, &[label]).map(|value| KeyParameter {
-            name: name.to_string(),
-            value,
-            unit: None,
-        })
-    })
-    .collect()
+fn extract_nand_flash(lines: &[&str]) -> Option<String> {
+    let patterns = [
+        r"NAND:\s*.*?(\d+)\s*(MiB|MB|GiB|GB)",
+        r"NAND Flash:\s*(.+)",
+    ];
+
+    for pattern in &patterns {
+        let re = Regex::new(pattern).ok()?;
+        for line in lines {
+            if let Some(captures) = re.captures(line) {
+                if captures.len() > 2 {
+                    return Some(format!("{}{}", &captures[1], &captures[2]));
+                } else if captures.len() > 1 {
+                    return Some(captures[1].to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_sdram(lines: &[&str]) -> Option<String> {
+    let patterns = [
+        r"DRAM:\s*(.+)",
+        r"SDRAM:\s*(.+)",
+        r"DDR(\d+).*?(\d+)\s*(MB|GB)",
+    ];
+
+    for pattern in &patterns {
+        let re = Regex::new(pattern).ok()?;
+        for line in lines {
+            if let Some(captures) = re.captures(line) {
+                if captures.len() > 1 {
+                    return Some(captures[1].to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_watchdog(lines: &[&str]) -> Option<String> {
+    for line in lines {
+        let normalized = line.to_ascii_uppercase();
+        if normalized.contains("ENABLING WATCHDOG") {
+            return Some("enabled".to_string());
+        }
+        if normalized.contains("WATCHDOG STATUS") && normalized.contains("CLEAR") {
+            return Some("cleared".to_string());
+        }
+    }
+    None
 }
 
 fn parse_anomalies(lines: &[&str]) -> Vec<Anomaly> {
@@ -151,17 +299,20 @@ fn parse_anomalies(lines: &[&str]) -> Vec<Anomaly> {
 fn anomaly_severity(line: &str) -> Option<AnomalySeverity> {
     let normalized = line.to_ascii_uppercase();
     if normalized.contains("WARNING") || normalized.contains("WARN") {
-        Some(AnomalySeverity::Warning)
-    } else if normalized.contains("ERROR") || normalized.contains(" FAILED") {
-        Some(AnomalySeverity::Error)
-    } else {
-        None
+        return Some(AnomalySeverity::Warning);
     }
+    if normalized.contains("ERROR") || normalized.contains(" FAILED") || normalized.contains("FAIL") {
+        if normalized.contains("PASS") || normalized.contains("CHECK") {
+            return None;
+        }
+        return Some(AnomalySeverity::Error);
+    }
+    None
 }
 
 fn anomaly_context(lines: &[&str], index: usize) -> Vec<String> {
-    let start = index.saturating_sub(1);
-    let end = (index + 2).min(lines.len());
+    let start = index.saturating_sub(2);
+    let end = (index + 3).min(lines.len());
 
     lines[start..end]
         .iter()
@@ -175,31 +326,46 @@ fn parse_shmoo_plots(lines: &[&str]) -> Vec<ShmooPlot> {
     let mut index = 0;
 
     while index < lines.len() {
-        let Some(name) = lines[index].trim().strip_prefix("SHMOO:") else {
-            index += 1;
-            continue;
-        };
+        let line = lines[index].trim();
+        let line_upper = line.to_ascii_uppercase();
 
-        let mut rows = Vec::new();
-        index += 1;
-        while index < lines.len() {
-            let row = lines[index].trim();
-            if row.eq_ignore_ascii_case("END SHMOO") {
-                break;
-            }
-            if is_shmoo_row(row) {
-                rows.push(row.to_string());
-            }
+        if line_upper.starts_with("SHMOO:") || (line_upper.contains("SHMOO") && line_upper.contains("WR DQ")) {
+            let name = if line_upper.starts_with("SHMOO:") {
+                line.strip_prefix("SHMOO:").unwrap_or(line.strip_prefix("Shmoo:").unwrap_or("")).trim().to_string()
+            } else if line.starts_with("Shmoo ") {
+                line.strip_prefix("Shmoo ").unwrap_or("").trim().to_string()
+            } else {
+                format!("Shmoo {}", line)
+            };
+
+            let mut rows = Vec::new();
             index += 1;
+
+            while index < lines.len() {
+                let row = lines[index].trim();
+
+                if row.to_ascii_uppercase().eq_ignore_ascii_case("END SHMOO") || row.starts_with("Receive:") {
+                    break;
+                }
+
+                if is_shmoo_row(row) {
+                    let cleaned = clean_shmoo_row(row);
+                    if !cleaned.is_empty() {
+                        rows.push(cleaned);
+                    }
+                }
+                index += 1;
+            }
+
+            if !rows.is_empty() {
+                plots.push(ShmooPlot {
+                    name,
+                    rows: rows.clone(),
+                    cells: shmoo_cells(&rows),
+                });
+            }
         }
 
-        if !rows.is_empty() {
-            plots.push(ShmooPlot {
-                name: name.trim().to_string(),
-                cells: shmoo_cells(&rows),
-                rows,
-            });
-        }
         index += 1;
     }
 
@@ -207,10 +373,32 @@ fn parse_shmoo_plots(lines: &[&str]) -> Vec<ShmooPlot> {
 }
 
 fn is_shmoo_row(row: &str) -> bool {
-    !row.is_empty()
-        && row
-            .chars()
-            .all(|character| matches!(character, '+' | '-' | 'X' | 'S' | '.'))
+    if row.is_empty() {
+        return false;
+    }
+
+    let cleaned = clean_shmoo_row(row);
+    if cleaned.is_empty() {
+        return false;
+    }
+
+    cleaned.chars().all(|c| matches!(c, '+' | '-' | 'X' | 'S' | '.' | '@'))
+}
+
+fn clean_shmoo_row(row: &str) -> String {
+    let mut result = String::new();
+    let mut in_shmoo = false;
+
+    for c in row.chars() {
+        if matches!(c, '+' | '-' | 'X' | 'S' | '.' | '@') {
+            in_shmoo = true;
+            result.push(c);
+        } else if in_shmoo {
+            break;
+        }
+    }
+
+    result
 }
 
 fn shmoo_cells(rows: &[String]) -> Vec<ShmooCell> {

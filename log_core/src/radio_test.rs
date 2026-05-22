@@ -1,0 +1,253 @@
+use crate::{
+    Anomaly, AnomalySeverity, DeviceInfo, KeyParameter, LogKind, LogParser, ParseError,
+    ParseSource, ParsedLog, ProcessResult, TestStatus,
+};
+use regex::Regex;
+
+pub struct RadioTestParser;
+
+impl LogParser for RadioTestParser {
+    fn kind(&self) -> LogKind {
+        LogKind::RadioTest
+    }
+
+    fn matches(&self, file_name: &str, content: &str) -> bool {
+        let normalized_name = file_name.to_ascii_lowercase();
+        let normalized_content = content.to_ascii_lowercase();
+
+        normalized_name.contains("radio")
+            || (normalized_content.contains("wl0") && normalized_content.contains("wl1") && normalized_content.contains("wifi"))
+    }
+
+    fn parse(&self, file_name: &str, content: &str) -> Result<ParsedLog, ParseError> {
+        if content.trim().is_empty() {
+            return Err(ParseError::new("Radio Test log is empty"));
+        }
+
+        let lines: Vec<&str> = content.lines().collect();
+
+        Ok(ParsedLog {
+            source: ParseSource {
+                file_name: file_name.to_string(),
+                parser: self.kind(),
+            },
+            device: parse_device_info(&lines),
+            processes: vec![ProcessResult {
+                name: "Radio Test".to_string(),
+                status: parse_status(&lines),
+                duration_ms: None,
+                key_parameters: parse_key_parameters(&lines),
+            }],
+            anomalies: parse_anomalies(&lines),
+            shmoo_plots: Vec::new(),
+        })
+    }
+}
+
+fn parse_device_info(lines: &[&str]) -> DeviceInfo {
+    DeviceInfo {
+        mac: extract_mac(lines),
+        sn: None,
+        smt_number: None,
+        model: None,
+        production_date: None,
+    }
+}
+
+fn extract_mac(lines: &[&str]) -> Option<String> {
+    let patterns = [
+        r"Get MAC\s*:\s*([A-Fa-f0-9]+)",
+        r"br0.*?HWaddr\s*([A-Fa-f0-9:]+)",
+    ];
+
+    for pattern in &patterns {
+        if let Some(value) = extract_by_regex(lines, pattern) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn extract_by_regex(lines: &[&str], pattern: &str) -> Option<String> {
+    let re = Regex::new(pattern).ok()?;
+    for line in lines {
+        if let Some(captures) = re.captures(line) {
+            if captures.len() > 1 {
+                return Some(captures[1].to_string());
+            }
+        }
+    }
+    None
+}
+
+fn parse_status(lines: &[&str]) -> TestStatus {
+    for line in lines.iter().rev() {
+        let normalized = line.to_ascii_uppercase();
+        if normalized.contains("RADIO TEST") && normalized.contains("PASS") {
+            return TestStatus::Pass;
+        }
+        if normalized.contains("RADIO TEST") && normalized.contains("FAIL") {
+            return TestStatus::Fail;
+        }
+    }
+
+    let pass_patterns = [
+        r"_PASS\.log",
+        r"ALL\s+PASS",
+    ];
+
+    for pattern in &pass_patterns {
+        let re = Regex::new(pattern).ok().unwrap();
+        for line in lines {
+            if re.is_match(&line.to_ascii_uppercase()) {
+                return TestStatus::Pass;
+            }
+        }
+    }
+
+    TestStatus::Unknown
+}
+
+fn parse_key_parameters(lines: &[&str]) -> Vec<KeyParameter> {
+    let mut params = Vec::new();
+
+    if let Some(value) = extract_wl0_status(lines) {
+        params.push(KeyParameter {
+            name: "wl0_status".to_string(),
+            value,
+            unit: None,
+        });
+    }
+
+    if let Some(value) = extract_wl1_status(lines) {
+        params.push(KeyParameter {
+            name: "wl1_status".to_string(),
+            value,
+            unit: None,
+        });
+    }
+
+    if let Some(value) = extract_2g_channels(lines) {
+        params.push(KeyParameter {
+            name: "2g_channels".to_string(),
+            value,
+            unit: None,
+        });
+    }
+
+    if let Some(value) = extract_5g_channels(lines) {
+        params.push(KeyParameter {
+            name: "5g_channels".to_string(),
+            value,
+            unit: None,
+        });
+    }
+
+    params
+}
+
+fn extract_wl0_status(lines: &[&str]) -> Option<String> {
+    for line in lines {
+        if line.contains("wl0") && line.contains("Link encap") {
+            return Some("OK".to_string());
+        }
+    }
+    None
+}
+
+fn extract_wl1_status(lines: &[&str]) -> Option<String> {
+    for line in lines {
+        if line.contains("wl1") && line.contains("Link encap") {
+            return Some("OK".to_string());
+        }
+    }
+    None
+}
+
+fn extract_2g_channels(lines: &[&str]) -> Option<String> {
+    let mut channels = Vec::new();
+    let re = Regex::new(r"VERIX_RX_24(\d{2})_").ok()?;
+
+    for line in lines {
+        if let Some(captures) = re.captures(line) {
+            if captures.len() > 1 {
+                let channel = &captures[1];
+                if !channels.contains(&channel.to_string()) {
+                    channels.push(channel.to_string());
+                }
+            }
+        }
+    }
+
+    if !channels.is_empty() {
+        Some(format!("{} channels", channels.len()))
+    } else {
+        None
+    }
+}
+
+fn extract_5g_channels(lines: &[&str]) -> Option<String> {
+    let mut channels = Vec::new();
+    let re = Regex::new(r"VERIX_RX_5(\d{3})_").ok()?;
+
+    for line in lines {
+        if let Some(captures) = re.captures(line) {
+            if captures.len() > 1 {
+                let channel = &captures[1];
+                if !channels.contains(&channel.to_string()) {
+                    channels.push(channel.to_string());
+                }
+            }
+        }
+    }
+
+    if !channels.is_empty() {
+        Some(format!("{} channels", channels.len()))
+    } else {
+        None
+    }
+}
+
+fn parse_anomalies(lines: &[&str]) -> Vec<Anomaly> {
+    lines
+        .iter()
+        .enumerate()
+        .filter_map(|(index, line)| {
+            let severity = anomaly_severity(line)?;
+            Some(Anomaly {
+                severity,
+                message: line.trim().to_string(),
+                line_number: index + 1,
+                context: anomaly_context(lines, index),
+            })
+        })
+        .collect()
+}
+
+fn anomaly_severity(line: &str) -> Option<AnomalySeverity> {
+    let normalized = line.to_ascii_uppercase();
+    if normalized.contains("WARNING") || normalized.contains("WARN") {
+        return Some(AnomalySeverity::Warning);
+    }
+    if normalized.contains("ERROR") || normalized.contains(" FAILED") {
+        if normalized.contains("PASS") || normalized.contains("CHECK") {
+            return None;
+        }
+        return Some(AnomalySeverity::Error);
+    }
+    if normalized.contains("FAILED TO GET CHANNEL INFO") {
+        return Some(AnomalySeverity::Warning);
+    }
+    None
+}
+
+fn anomaly_context(lines: &[&str], index: usize) -> Vec<String> {
+    let start = index.saturating_sub(2);
+    let end = (index + 3).min(lines.len());
+
+    lines[start..end]
+        .iter()
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .collect()
+}

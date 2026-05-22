@@ -4,7 +4,7 @@
     "parser": "function_test"
   },
   "device": {
-    "mac": "F4:E1:FC:CF:04:68",
+    "mac": "F4E1FCCF0468",
     "sn": "CNWGLGQ04S",
     "smt_number": "SMT2405220007",
     "model": "AP-503",
@@ -14,7 +14,7 @@
     {
       "name": "Function Test",
       "status": "PASS",
-      "duration_ms": 750000,
+      "duration_ms": null,
       "key_parameters": [
         {
           "name": "u_boot_version",
@@ -23,7 +23,7 @@
         },
         {
           "name": "nand_flash",
-          "value": "128MB",
+          "value": "128MiB",
           "unit": null
         },
         {
@@ -43,11 +43,13 @@
     {
       "severity": "warning",
       "message": "WARNING Failed to retrieve boot CFE version from dtb!",
-      "line_number": 13,
+      "line_number": 15,
       "context": [
-        "Duration: 12:30",
+        "DRAM: DDR4 1GB",
+        "Enabling Watchdog.",
         "WARNING Failed to retrieve boot CFE version from dtb!",
-        "retry boot metadata read"
+        "retry boot metadata read",
+        "SHMOO: DDR Write Leveling"
       ]
     }
   ],

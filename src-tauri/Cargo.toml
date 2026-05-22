@@ -15,7 +15,20 @@ tauri-build = { version = "2.0.0", features = [] }
 log_core = { path = "../log_core" }
 tauri = { version = "2.0.0", features = [] }
 tauri-plugin-dialog = "2.0.0"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.11", features = ["json"] }
+base64 = "0.21"
+dirs = "5.0"
 
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+[package.metadata.tauri]
+bundle = { icon = ["src-tauri/icons/32x32.png", "src-tauri/icons/128x128.png", "src-tauri/icons/128x128@2x.png", "src-tauri/icons/icon.icns", "src-tauri/icons/icon.ico"] }
+
+[package.metadata.tauri-winres]
+icon = "src-tauri/icons/icon.ico"

@@ -5,6 +5,7 @@ onlyBuiltDependencies:
   - "@tauri-apps/cli"
   - esbuild
 allowBuilds:
+  core-js: set this to true or false
   esbuild: true
 
 confirmModulesPurge: false

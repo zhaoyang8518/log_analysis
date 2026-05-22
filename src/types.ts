@@ -29,6 +29,8 @@ export interface ProcessResult {
   status: TestStatus;
   duration_ms: number | null;
   key_parameters: KeyParameter[];
+  logKind?: LogKind;
+  sourceFile?: string;
 }
 
 export interface Anomaly {
@@ -60,4 +62,14 @@ export interface ParsedLog {
   processes: ProcessResult[];
   anomalies: Anomaly[];
   shmoo_plots: ShmooPlot[];
+}
+
+export interface AggregatedDevice {
+  id: string; // serial number, MAC, or filename fallback
+  deviceInfo: DeviceInfo; // merged device metadata
+  logs: ParsedLog[]; // list of original logs
+  processes: ProcessResult[]; // merged processes from all logs
+  anomalies: (Anomaly & { sourceFile: string })[]; // merged anomalies with source filename tracking
+  shmoo_plots: ShmooPlot[]; // merged Shmoo plots
+  overallStatus: TestStatus; // PASS, FAIL, or UNKNOWN
 }

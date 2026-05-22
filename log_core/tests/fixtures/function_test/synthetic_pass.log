@@ -1,15 +1,17 @@
-Station: ICT-07
+Binding Sfcs
+Test Mode:BindingSfcsMode
+Golden Test:False
 Function Test Start
+Test Begin
+Get SMT:SMT2405220007
+Get MAC from SFCS:F4E1FCCF0468
+Get SN from SFCS:CNWGLGQ04S
+The System D/L Date 2026-05-22 Match Work Week Label(WG)
 Model: AP-503
-SN: CNWGLGQ04S
-MAC: F4:E1:FC:CF:04:68
-SMT Number: SMT2405220007
-Production Date: 2026-05-22
-U-Boot Version: 2.6.5.9
-NAND Flash: 128MB
-SDRAM: DDR4 1GB
-Watchdog: enabled
-Duration: 12:30
+U-Boot 2.6.5.9 AP503 v1.0.1
+NAND: 128 MiB
+DRAM: DDR4 1GB
+Enabling Watchdog.
 WARNING Failed to retrieve boot CFE version from dtb!
 retry boot metadata read
 SHMOO: DDR Write Leveling
@@ -17,4 +19,4 @@ SHMOO: DDR Write Leveling
 ++S++
 +----
 END SHMOO
-Function Test Result: PASS
+[PASS] FUNCTION1 TEST!
