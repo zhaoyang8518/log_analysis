@@ -1,8 +1,10 @@
 import { useMemo, useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 import { ScanSearch, AlertTriangle, LayoutDashboard, ListChecks, Activity } from "lucide-react";
 import type { ParsedLog } from "./types";
 import { LocaleProvider, Locale, t } from "./i18n";
+import { ThemeProvider } from "./theme";
 import Topbar from "./components/Topbar";
 import ReportList from "./components/ReportList";
 import { DeviceOverview, ProcessTable, ProcessTimeline } from "./components/DeviceOverview";
@@ -17,10 +19,73 @@ import { showToast, ToastContainer } from "./components/Toast";
 import { aggregateReports } from "./utils/aggregation";
 
 function App() {
-  const [locale, setLocale] = useState<Locale>("en");
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    return (localStorage.getItem("log-analysis:locale") as Locale) || "zh";
+  });
+
+  const setLocale = (newLocale: Locale) => {
+    setLocaleState(newLocale);
+    localStorage.setItem("log-analysis:locale", newLocale);
+  };
+
+  useEffect(() => {
+    const title = "";
+    document.title = title;
+
+    if ("__TAURI_INTERNALS__" in window) {
+      import("@tauri-apps/api/window")
+        .then(({ getCurrentWindow }) => {
+          getCurrentWindow().setTitle(title).catch((err) => {
+            console.error("Failed to set Tauri window title:", err);
+          });
+        })
+        .catch((err) => {
+          console.error("Failed to import @tauri-apps/api/window:", err);
+        });
+    }
+  }, []);
   const [reports, setReports] = useState<ParsedLog[]>([]);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [aiClassifications, setAiClassifications] = useState<Record<string, { severity: string; reason: string }>>({});
+  const [aiSummaries, setAiSummaries] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (currentPath) {
+      invoke<string>("load_ai_classify_cache", { folderPath: currentPath })
+        .then((jsonStr) => {
+          try {
+            const data = JSON.parse(jsonStr);
+            setAiClassifications(data || {});
+          } catch (e) {
+            console.error("Failed to parse AI classify cache", e);
+            setAiClassifications({});
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load AI classify cache", err);
+          setAiClassifications({});
+        });
+
+      invoke<string>("load_ai_summary_cache", { folderPath: currentPath })
+        .then((jsonStr) => {
+          try {
+            const data = JSON.parse(jsonStr);
+            setAiSummaries(data || {});
+          } catch (e) {
+            console.error("Failed to parse AI summary cache", e);
+            setAiSummaries({});
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load AI summary cache", err);
+          setAiSummaries({});
+        });
+    } else {
+      setAiClassifications({});
+      setAiSummaries({});
+    }
+  }, [currentPath]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -174,7 +239,20 @@ function App() {
       };
 
       const base64 = arrayBufferToBase64(arrayBuffer);
-      const pdfPath = `${currentPath}/report.pdf`;
+      
+      const pdfPath = await save({
+        filters: [{
+          name: "PDF Files",
+          extensions: ["pdf"]
+        }],
+        defaultPath: "report.pdf"
+      });
+
+      if (!pdfPath) {
+        document.body.removeChild(container);
+        setExportingPdf(false);
+        return;
+      }
       
       await invoke("write_binary_file", { path: pdfPath, contentBase64: base64 });
       document.body.removeChild(container);
@@ -187,7 +265,8 @@ function App() {
   };
 
   return (
-    <LocaleProvider value={{ locale, setLocale }}>
+    <ThemeProvider>
+      <LocaleProvider value={{ locale, setLocale }}>
       <main className="app-shell">
         <Topbar
           loading={loading}
@@ -298,7 +377,12 @@ function App() {
                         }}
                       />
                       <ProcessTimeline processes={processes} />
-                      <AiSummaryPanel device={selectedDevice} />
+                      <AiSummaryPanel
+                        device={selectedDevice}
+                        aiSummaries={aiSummaries}
+                        setAiSummaries={setAiSummaries}
+                        currentPath={currentPath}
+                      />
                     </div>
                   )}
 
@@ -316,7 +400,12 @@ function App() {
                   {activeTab === "anomalies" && (
                     <div className="tab-pane-fade-in panel">
                       <PanelTitle icon={<AlertTriangle />} title={t("anomalyList", locale)} />
-                      <AnomalyList device={selectedDevice} />
+                      <AnomalyList
+                        device={selectedDevice}
+                        aiClassifications={aiClassifications}
+                        setAiClassifications={setAiClassifications}
+                        currentPath={currentPath}
+                      />
                     </div>
                   )}
 
@@ -351,7 +440,8 @@ function App() {
         />
       )}
       <ToastContainer />
-    </LocaleProvider>
+      </LocaleProvider>
+    </ThemeProvider>
   );
 }
 

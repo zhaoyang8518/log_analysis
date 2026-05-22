@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { FileText, Brain } from "lucide-react";
 import type { AggregatedDevice } from "../types";
 import { t, useLocale } from "../i18n";
@@ -6,12 +7,20 @@ import { generateSummary, loadModelSettings } from "../model";
 
 const summarySteps = ["aiSummaryStep1", "aiSummaryStep2", "aiSummaryStep3"] as const;
 
-function AiSummaryPanel({ device }: { device: AggregatedDevice }) {
+interface AiSummaryPanelProps {
+  device: AggregatedDevice;
+  aiSummaries: Record<string, string>;
+  setAiSummaries: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  currentPath: string | null;
+}
+
+function AiSummaryPanel({ device, aiSummaries, setAiSummaries, currentPath }: AiSummaryPanelProps) {
   const { locale } = useLocale();
   const [generating, setGenerating] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [summary, setSummary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const summary = aiSummaries[device.id] || null;
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -38,7 +47,14 @@ function AiSummaryPanel({ device }: { device: AggregatedDevice }) {
       const result = await generateSummary(deviceInfo, processes, anomalies, settings);
 
       setCurrentStep(3);
-      setSummary(result);
+      const updatedSummaries = { ...aiSummaries, [device.id]: result };
+      setAiSummaries(updatedSummaries);
+      if (currentPath) {
+        await invoke("save_ai_summary_cache", {
+          folderPath: currentPath,
+          summaryJson: JSON.stringify(updatedSummaries)
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

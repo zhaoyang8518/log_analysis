@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "产线日志诊断",
+        "title": "",
         "width": 1380,
         "height": 900,
         "minWidth": 960,

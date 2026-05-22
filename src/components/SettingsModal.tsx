@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Settings, X, Sliders, Bot, Check, AlertCircle, Shield, ChevronDown } from "lucide-react";
 import { t, useLocale, Locale } from "../i18n";
+import { useTheme, Theme } from "../theme";
 import {
   loadModelSettings,
   saveModelSettings,
@@ -95,6 +96,7 @@ function CustomSelect({
 
 function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { locale, setLocale } = useLocale();
+  const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<"general" | "aiModel" | "privacy">("general");
   const [settings, setSettings] = useState<ModelSettings>(DEFAULT_MODEL_SETTINGS);
   const [privacyConfig, setPrivacyConfig] = useState<DesensitizationConfig>({ enabled: true, types: [] });
@@ -213,20 +215,41 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <div className="modal-body">
           {activeTab === "general" && (
             <div className="settings-section">
-              <div className="section-label">{t("language", locale)}</div>
-              <div className="language-grid">
-                {[
-                  { label: t("english", locale), value: "en" as Locale },
-                  { label: t("chinese", locale), value: "zh" as Locale },
-                ].map((lang) => (
-                  <button
-                    key={lang.value}
-                    onClick={() => setLocale(lang.value)}
-                    className={`lang-btn ${locale === lang.value ? "active" : ""}`}
-                  >
-                    {lang.label}
-                  </button>
-                ))}
+              <div className="setting-group">
+                <div className="section-label">{t("language", locale)}</div>
+                <div className="language-grid">
+                  {[
+                    { label: t("english", locale), value: "en" as Locale },
+                    { label: t("chinese", locale), value: "zh" as Locale },
+                  ].map((lang) => (
+                    <button
+                      key={lang.value}
+                      onClick={() => setLocale(lang.value)}
+                      className={`lang-btn ${locale === lang.value ? "active" : ""}`}
+                    >
+                      {lang.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="setting-group">
+                <div className="section-label">{t("theme", locale)}</div>
+                <div className="theme-grid">
+                  {[
+                    { label: t("theme_light", locale), value: "light" as Theme },
+                    { label: t("theme_dark", locale), value: "dark" as Theme },
+                    { label: t("theme_system", locale), value: "system" as Theme },
+                  ].map((tOpt) => (
+                    <button
+                      key={tOpt.value}
+                      onClick={() => setTheme(tOpt.value)}
+                      className={`theme-btn ${theme === tOpt.value ? "active" : ""}`}
+                    >
+                      {tOpt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

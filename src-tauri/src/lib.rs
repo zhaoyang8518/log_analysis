@@ -411,6 +411,10 @@ pub fn run() {
             check_report_exists,
             save_report,
             read_report,
+            save_ai_classify_cache,
+            load_ai_classify_cache,
+            save_ai_summary_cache,
+            load_ai_summary_cache,
             write_file,
             write_binary_file,
             open_file
@@ -419,23 +423,70 @@ pub fn run() {
         .expect("error while running log analysis desktop app");
 }
 
+fn get_analysis_dir(folder_path: &str) -> PathBuf {
+    let path = Path::new(folder_path);
+    if path.is_dir() {
+        path.join(".log_analysis")
+    } else {
+        path.parent()
+            .unwrap_or(path)
+            .join(".log_analysis")
+    }
+}
+
 #[tauri::command]
 fn check_report_exists(folder_path: String) -> bool {
-    Path::new(&folder_path).join("report.md").exists()
+    get_analysis_dir(&folder_path).join("report.md").exists()
 }
 
 #[tauri::command]
 fn save_report(folder_path: String, content: String) -> Result<(), String> {
-    let report_path = Path::new(&folder_path).join("report.md");
+    let dir = get_analysis_dir(&folder_path);
+    fs::create_dir_all(&dir).map_err(|e| format!("Failed to create .log_analysis directory: {}", e))?;
+    let report_path = dir.join("report.md");
     fs::write(&report_path, content)
         .map_err(|e| format!("Failed to save report: {}", e))
 }
 
 #[tauri::command]
 fn read_report(folder_path: String) -> Result<String, String> {
-    let report_path = Path::new(&folder_path).join("report.md");
+    let report_path = get_analysis_dir(&folder_path).join("report.md");
     fs::read_to_string(&report_path)
         .map_err(|e| format!("Failed to read report: {}", e))
+}
+
+#[tauri::command]
+fn save_ai_classify_cache(folder_path: String, classify_json: String) -> Result<(), String> {
+    let dir = get_analysis_dir(&folder_path);
+    fs::create_dir_all(&dir).map_err(|e| format!("Failed to create .log_analysis directory: {}", e))?;
+    let path = dir.join("classify.json");
+    fs::write(&path, classify_json).map_err(|e| format!("Failed to save AI classify cache: {}", e))
+}
+
+#[tauri::command]
+fn load_ai_classify_cache(folder_path: String) -> Result<String, String> {
+    let path = get_analysis_dir(&folder_path).join("classify.json");
+    if !path.exists() {
+        return Ok("{}".to_string());
+    }
+    fs::read_to_string(&path).map_err(|e| format!("Failed to read AI classify cache: {}", e))
+}
+
+#[tauri::command]
+fn save_ai_summary_cache(folder_path: String, summary_json: String) -> Result<(), String> {
+    let dir = get_analysis_dir(&folder_path);
+    fs::create_dir_all(&dir).map_err(|e| format!("Failed to create .log_analysis directory: {}", e))?;
+    let path = dir.join("summary.json");
+    fs::write(&path, summary_json).map_err(|e| format!("Failed to save AI summary cache: {}", e))
+}
+
+#[tauri::command]
+fn load_ai_summary_cache(folder_path: String) -> Result<String, String> {
+    let path = get_analysis_dir(&folder_path).join("summary.json");
+    if !path.exists() {
+        return Ok("{}".to_string());
+    }
+    fs::read_to_string(&path).map_err(|e| format!("Failed to read AI summary cache: {}", e))
 }
 
 #[tauri::command]

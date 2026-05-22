@@ -266,7 +266,7 @@ export async function classifyAnomalies(
     current: number,
     total: number,
     batchClassifications?: { message: string; severity: string; reason: string }[]
-  ) => void
+  ) => void | Promise<void>
 ): Promise<{ classifications: { message: string; severity: string; reason: string }[] }> {
   if (!settings.enabled || settings.provider === "none") {
     return { classifications: anomalies.map((m) => ({ message: m, severity: "WARNING", reason: "AI disabled" })) };
@@ -285,7 +285,7 @@ export async function classifyAnomalies(
 
   try {
     for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-      onProgress?.(batchIndex + 1, totalBatches);
+      await onProgress?.(batchIndex + 1, totalBatches);
 
       const batchAnomalies = sanitizedAnomalies.slice(
         batchIndex * CLASSIFY_BATCH_SIZE,
@@ -297,13 +297,13 @@ export async function classifyAnomalies(
       try {
         const result = await callClassifyModel(prompt, settings);
         allResults.push(...result.classifications);
-        onProgress?.(batchIndex + 1, totalBatches, result.classifications);
+        await onProgress?.(batchIndex + 1, totalBatches, result.classifications);
       } catch (batchErr) {
         if (settings.provider !== "ollama") {
           const fallbackResult = await tryFallbackToOllama(prompt, settings);
           if (fallbackResult) {
             allResults.push(...fallbackResult.classifications);
-            onProgress?.(batchIndex + 1, totalBatches, fallbackResult.classifications);
+            await onProgress?.(batchIndex + 1, totalBatches, fallbackResult.classifications);
             continue;
           }
         }
