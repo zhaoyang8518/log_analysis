@@ -214,7 +214,6 @@ function AnomalyList({ device, aiClassifications, setAiClassifications, currentP
                   style={{
                     backgroundColor: "transparent",
                     border: "1px solid var(--border-subtle)",
-                    color: "var(--text-muted)",
                   }}
                 >
                   {t("aiClassifyRebuild", locale)}
@@ -227,7 +226,6 @@ function AnomalyList({ device, aiClassifications, setAiClassifications, currentP
                 style={{
                   backgroundColor: "transparent",
                   border: "1px solid var(--border-subtle)",
-                  color: "var(--text-muted)",
                 }}
               >
                 <Brain size={14} />
