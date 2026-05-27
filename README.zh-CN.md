@@ -80,4 +80,4 @@ API Key 通过桌面命令层保存，不写入仓库。发送提示词前，应
 
 ## 发布
 
-CI 构建工作流会在 `main`、`release`、版本 tag、指向这些分支的 pull request 以及手动触发时运行。Release 工作流在版本 tag 上运行，并把 Tauri 构建产物上传到当前仓库的 GitHub Releases，不再发布到单独的 `tools-releases` 仓库。
+CI 构建工作流会在 `main`、`release`、版本 tag、指向这些分支的 pull request 以及手动触发时运行。Release 工作流会在 `main`、`release`、版本 tag 以及手动触发时运行。分支构建会更新当前仓库的 `log-analysis-latest` GitHub Release，版本 tag 会使用 tag 名称发布对应 release。构建产物不再发布到单独的 `tools-releases` 仓库。

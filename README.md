@@ -96,6 +96,8 @@ desensitization rules and records model-call audit metadata.
 ## Releases
 
 The CI build workflow runs for `main`, `release`, version tags, pull requests to
-those branches, and manual dispatches. Release builds run on version tags and
-upload Tauri assets to this repository's GitHub Releases. Build artifacts are no
-longer published to the separate `tools-releases` repository.
+those branches, and manual dispatches. The release workflow runs for `main`,
+`release`, version tags, and manual dispatches. Branch builds update this
+repository's `log-analysis-latest` GitHub Release, while version tags publish a
+release with the tag name. Build artifacts are no longer published to the
+separate `tools-releases` repository.
