@@ -7,13 +7,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
-  RELEASE_OWNER: zhaoyang8518
-  RELEASE_REPO: tools-releases
-  RELEASE_TAG: log-analysis-latest
-  RELEASE_NAME: Production Log Diagnosis Latest
+  RELEASE_NAME: Production Log Diagnosis ${{ github.ref_name }}
 
 jobs:
   build-windows:
@@ -49,19 +46,15 @@ jobs:
       - name: Build, sign, and upload Windows release assets
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.TOOLS_RELEASES_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           projectPath: ./src-tauri
-          owner: ${{ env.RELEASE_OWNER }}
-          repo: ${{ env.RELEASE_REPO }}
-          tagName: ${{ env.RELEASE_TAG }}
+          tagName: ${{ github.ref_name }}
           releaseName: ${{ env.RELEASE_NAME }}
           releaseBody: |
-            Latest OTA release for Production Log Diagnosis.
-
-            Source tag: ${{ github.ref_name }}
-          releaseCommitish: main
+            Release build for Production Log Diagnosis.
+          releaseCommitish: ${{ github.sha }}
           releaseDraft: false
           prerelease: false
           updaterJsonPreferNsis: true
@@ -96,19 +89,15 @@ jobs:
       - name: Build, sign, and upload macOS release assets
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.TOOLS_RELEASES_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           projectPath: ./src-tauri
-          owner: ${{ env.RELEASE_OWNER }}
-          repo: ${{ env.RELEASE_REPO }}
-          tagName: ${{ env.RELEASE_TAG }}
+          tagName: ${{ github.ref_name }}
           releaseName: ${{ env.RELEASE_NAME }}
           releaseBody: |
-            Latest OTA release for Production Log Diagnosis.
-
-            Source tag: ${{ github.ref_name }}
-          releaseCommitish: main
+            Release build for Production Log Diagnosis.
+          releaseCommitish: ${{ github.sha }}
           releaseDraft: false
           prerelease: false
           updaterJsonPreferNsis: true
